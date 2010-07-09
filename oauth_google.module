@@ -1,0 +1,165 @@
+<?php
+/**
+ * @file
+ * OAuth client library for Google Apps
+ */
+
+// Authorization callback URL
+define('OAUTH_GOOGLE_AUTHORIZE_PATH', 'oauth/google/authorized');
+
+// Default scope: Documents List, Calendar, Contacts
+define('OAUTH_GOOGLE_DEFAULT_SCOPE', 'http://docs.google.com/feeds/ http://www.google.com/calendar/feeds/ http://www.google.com/m8/feeds/ http://tables.googlelabs.com/api/query/');
+
+/**
+ * Implementation hook_autoload_info().
+ */
+function oauth_google_autoload_info() {
+  return array(
+    'GoogleOAuthClient'         => array('file' => 'includes/GoogleOAuthClient.inc'),
+    'GoogleOAuthToken'         => array('file' => 'includes/GoogleOAuthToken.inc'),
+  );
+}
+
+function oauth_google_menu() {
+  // Admin pages
+  $items['admin/settings/oauth/google'] = array(
+    'title' => 'Google',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('oauth_google_admin_settings_form'),
+    'access arguments' => array('administer google data'),
+    'file' => 'oauth_google.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items[OAUTH_GOOGLE_AUTHORIZE_PATH] = array(
+    'title' => 'Authorization finished',
+    'page callback' => 'oauth_google_authorize_callback',
+    'access callback' => '_oauth_common_always_true',
+    'file' => 'oauth_google.pages.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Menu access callback
+ */
+function oauth_google_user_access($account) {
+  global $user;
+
+  return user_access('administer site configuration') || $user->uid == $account->uid && user_access('access google oauth');
+}
+
+/**
+ * Get default consumer, creates a new one if missing
+ */
+function oauth_google_get_consumer() {
+  static $consumer;
+
+  if (!empty($consumer)) return $consumer;
+
+  $key = variable_get('oauth_google_consumer_key', '');
+  if ($consumer = DrupalOAuthConsumer::load($key)) {
+    return $consumer;
+  }
+  else {
+    $params = array(
+      'name' => 'Google Apps',
+      'provider_consumer' => FALSE,
+      'type' => 'gapps',
+    );
+    $consumer = new DrupalOAuthConsumer($key, variable_get('oauth_google_consumer_secret', ''), oauth_google_authorize_url(), $params);
+    $consumer->write();
+    return $consumer;
+  }
+}
+
+/**
+ * Get authorization url
+ */
+function oauth_google_authorize_url() {
+  return url(OAUTH_GOOGLE_AUTHORIZE_PATH, array('absolute' => TRUE));
+}
+/**
+ * Get access/request token for user account
+ */
+function oauth_google_get_user_token($account, $consumer, $type = 'access') {
+  $result = db_query("SELECT * from {oauth_common_token} WHERE type = '%s' AND consumer_key = '%s' AND uid = %d", $type, $consumer->key, $account->uid);
+  if ($token = GoogleOAuthToken::fromResult($result)) {
+    return $token;
+  }
+}
+
+/**
+ * Get scope as single string
+ */
+function oauth_google_get_scope() {
+  return variable_get('oauth_google_default_scope', OAUTH_GOOGLE_DEFAULT_SCOPE);
+}
+
+/**
+ * Google apps scopes
+#
+Google Fusion Tables
+http://tables.googlelabs.com/api/query/
+#
+Analytics
+https://www.google.com/analytics/feeds/
+#
+Google Base
+http://www.google.com/base/feeds/
+#
+Book Search
+http://www.google.com/books/feeds/
+#
+Blogger
+http://www.blogger.com/feeds/
+#
+Calendar
+http://www.google.com/calendar/feeds/
+#
+Contacts
+http://www.google.com/m8/feeds/
+#
+Documents List
+http://docs.google.com/feeds/
+#
+Finance
+http://finance.google.com/finance/feeds/
+#
+GMail
+https://mail.google.com/mail/feed/atom
+#
+Health
+https://www.google.com/health/feeds/
+#
+H9
+https://www.google.com/h9/feeds/
+#
+Maps
+http://maps.google.com/maps/feeds/
+#
+OpenSocial
+http://www-opensocial.googleusercontent.com/api/people/
+#
+orkut
+http://www.orkut.com/social/rest
+#
+Picasa Web
+http://picasaweb.google.com/data/
+#
+Sidewiki
+http://www.google.com/sidewiki/feeds/
+#
+Sites
+http://sites.google.com/feeds/
+#
+Spreadsheets
+http://spreadsheets.google.com/feeds/
+#
+Webmaster Tools
+http://www.google.com/webmasters/tools/feeds/
+#
+YouTube
+http://gdata.youtube.com
+ */
