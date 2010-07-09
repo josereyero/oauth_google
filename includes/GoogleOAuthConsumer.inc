@@ -11,7 +11,9 @@
 class GoogleOAuthConsumer extends DrupalOAuthConsumer {
   public $provider_consumer = FALSE;
   public $name = 'Google OAuth';
-
+  public $configuration = array(
+    'provider_url' => 'https://www.google.com/accounts',
+  );
   function __construct($key, $secret, $callback_url = NULL, $params=array()) {
     // Unlike for Drupal consumer, we have a url by default
     $callback_url = $callback_url ? $callback_url : oauth_google_authorize_url();

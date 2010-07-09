@@ -1,19 +1,37 @@
 <?php
 // $Id: DrupalOAuthClient.inc,v 1.1 2009/06/23 06:55:59 jreyero Exp $
 
-class GoogleOAuthClient {
-  protected $server = 'https://www.google.com/accounts';
+/**
+ * OAuth client for Google Data API
+ */
+class GoogleOAuthClient extends DrupalOAuthClient {
+  const SERVER = 'https://www.google.com/accounts';
+  const USER_AUTHORIZATION_PATH = '/OAuthAuthorizeToken';
+  const REQUEST_TOKEN_PATH = '/OAuthGetRequestToken';
+  const ACCESS_TOKEN_PATH = '/OAuthGetAccessToken';
+
   protected $requestTokenUrl = 'https://www.google.com/accounts/OAuthGetRequestToken';
   protected $userAuthorizationUrl = 'https://www.google.com/accounts/OAuthAuthorizeToken';
   protected $accessTokenUrl = 'https://www.google.com/accounts/OAuthGetAccessToken';
-  protected $consumer;
-  protected $requestToken;
-  protected $accessToken = NULL;  
+
   public $scope;
   public $oauth_callback;
 
-  function __construct($consumer) {
-    $this->consumer = $consumer;
+    /**
+   * Creates an instance of the DrupalOAuthClient.
+   *
+   * @param DrupalOAuthConsumer $consumer
+   *  The consumer.
+   * @param OAuthToken $request_token
+   *  Optional. A request token to use.
+   * @param OAuthSignatureMethod $signature_method
+   *  Optional. The signature method to use.
+   */
+  public function __construct($consumer, $request_token = NULL, $signature_method = NULL) {
+    // We just override the constructor to pass on the right signature_method.
+    // As it is a static function, calling the parent's constructor will use parent's method
+    $signature_method = $signature_method ? $signature_method : self::signatureMethod();
+    parent::__construct($consumer, $request_token, $signature_method);
   }
 
   public static function signatureMethod() {
@@ -35,7 +53,7 @@ class GoogleOAuthClient {
         'oauth_callback' => $callback_url ? $callback_url : $this->consumer->callback_url,     
       );
 
-      $response = $this->get_token($this->requestTokenUrl, $query);
+      $response = $this->get(self::REQUEST_TOKEN_PATH, TRUE, $query);
 
       $params = array();
       parse_str($response, $params);
@@ -43,8 +61,9 @@ class GoogleOAuthClient {
       if (empty($params['oauth_token']) || empty($params['oauth_token_secret'])) {
         throw new Exception('No valid request token was returned');
       }
+      
       $props = array(
-        'type' => GoogleOAuthToken::GDATA_REQUEST_TOKEN,
+        'type' => 'request',
         'consumer_key' => $this->consumer->key,
         'provider_token' => FALSE,
       );
@@ -55,6 +74,10 @@ class GoogleOAuthClient {
     return $this->requestToken;
   }
 
+  /**
+   * @param $domain
+   *   Optional Google Apps domain
+   */
   public function getAuthorizationUrl($domain = NULL) {
     $params = array(
       'oauth_token' => $this->requestToken->key,
@@ -62,14 +85,14 @@ class GoogleOAuthClient {
     if ($domain) {
       $params['hd'] = $domain;
     }
-    return $this->userAuthorizationUrl . '?' . http_build_query($params, NULL, '&');
+    return self::SERVER . self::USER_AUTHORIZATION_PATH . '?' . http_build_query($params, NULL, '&');
   }
 
   public function getAccessToken($oauth_verifier = NULL) {
     if (!$this->accessToken) {
       $query = array('oauth_verifier' => $oauth_verifier);
 
-      $response = $this->get_token($this->accessTokenUrl, $query, $this->requestToken);
+      $response = $this->get(self::ACCESS_TOKEN_PATH, TRUE, $query);
       $params = array();
       parse_str($response, $params);
 
@@ -77,7 +100,7 @@ class GoogleOAuthClient {
         throw new Exception('No valid access token was returned');
       }
       $props = array(    
-        'type' => GoogleOauthToken::GDATA_ACCESS_TOKEN,
+        'type' => 'access',
         'consumer_key' => $this->consumer->key,
         'provider_token' => FALSE,        
       );
@@ -125,26 +148,5 @@ class GoogleOAuthClient {
     return $result->body;
   }
 
-  private function interpretResponse($res) {
-    list($headers, $body) = preg_split('/\r\n\r\n/', $res, 2);
-
-    $obj = (object)array(
-      'headers' => $headers,
-      'body' => $body,
-    );
-
-    $matches = array();
-    if (preg_match('/HTTP\/1.\d (\d{3}) (.*)/', $headers, $matches)) {
-      $obj->responseCode = trim($matches[1]);
-      $obj->responseMessage = trim($matches[2]);
-
-      // Handle HTTP/1.1 100 Continue
-      if ($obj->responseCode==100) {
-        return $this->interpretResponse($body);
-      }
-    }
-
-    return $obj;
-  }  
 }
 

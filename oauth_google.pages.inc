@@ -43,5 +43,5 @@ function oauth_google_authorize_callback() {
     drupal_set_message(t('The authorization failed.'), 'error');
   }
   // Lacking a better idea, go back to user page
-  return 'user/' . $user->uid;
+  drupal_goto('user/' . $user->uid);
 }
