@@ -20,7 +20,7 @@ function oauth_google_authorize_callback() {
   
   if ($token = GoogleOAuthToken::load($token_key)) {
     $oauth_verifier = $req->get_parameter('oauth_verifier');
-    $consumer = DrupalOAuthConsumer::load($token->consumer_key);
+    $consumer = GoogleOAuthConsumer::load($token->consumer_key);
   }
 
   if ($token && $token->type == 'request' && $consumer) {
@@ -42,8 +42,6 @@ function oauth_google_authorize_callback() {
   else {
     drupal_set_message(t('The authorization failed.'), 'error');
   }
-  if ($token->uid) {
-    //drupal_goto('user/' . $token->uid . '/googleapps');
-  }
-  return '';
+  // Lacking a better idea, go back to user page
+  return 'user/' . $user->uid;
 }

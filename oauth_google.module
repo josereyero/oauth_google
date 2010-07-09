@@ -15,6 +15,7 @@ define('OAUTH_GOOGLE_DEFAULT_SCOPE', 'http://docs.google.com/feeds/ http://www.g
  */
 function oauth_google_autoload_info() {
   return array(
+    'GoogleOAuthConsumer'         => array('file' => 'includes/GoogleOAuthConsumer.inc'),
     'GoogleOAuthClient'         => array('file' => 'includes/GoogleOAuthClient.inc'),
     'GoogleOAuthToken'         => array('file' => 'includes/GoogleOAuthToken.inc'),
   );
@@ -42,35 +43,26 @@ function oauth_google_menu() {
 }
 
 /**
- * Menu access callback
- */
-function oauth_google_user_access($account) {
-  global $user;
-
-  return user_access('administer site configuration') || $user->uid == $account->uid && user_access('access google oauth');
-}
-
-/**
  * Get default consumer, creates a new one if missing
  */
-function oauth_google_get_consumer() {
-  static $consumer;
+function oauth_google_get_consumer($params = array()) {
+  $params += array(
+    'key' => variable_get('oauth_google_consumer_key', ''),
+    'secret' => variable_get('oauth_google_consumer_secret', ''),
+    'name' => 'Google OAuth',
+    'type' => 'google',
+    'callback_url' => oauth_google_authorize_url(),
+  );
 
-  if (!empty($consumer)) return $consumer;
-
-  $key = variable_get('oauth_google_consumer_key', '');
-  if ($consumer = DrupalOAuthConsumer::load($key)) {
-    return $consumer;
-  }
-  else {
-    $params = array(
-      'name' => 'Google Apps',
-      'provider_consumer' => FALSE,
-      'type' => 'gapps',
-    );
-    $consumer = new DrupalOAuthConsumer($key, variable_get('oauth_google_consumer_secret', ''), oauth_google_authorize_url(), $params);
-    $consumer->write();
-    return $consumer;
+  if (!empty($params['key'])) {
+    if ($consumer = GoogleOAuthConsumer::load($params['key'])) {
+      return $consumer;
+    }
+    elseif (!empty($params['secret'])) {
+      $consumer = new GoogleOAuthConsumer($params['key'], $params['secret'] , $params['callback_url'] , $params);
+      $consumer->write();
+      return $consumer;
+    }
   }
 }
 
@@ -80,6 +72,7 @@ function oauth_google_get_consumer() {
 function oauth_google_authorize_url() {
   return url(OAUTH_GOOGLE_AUTHORIZE_PATH, array('absolute' => TRUE));
 }
+
 /**
  * Get access/request token for user account
  */

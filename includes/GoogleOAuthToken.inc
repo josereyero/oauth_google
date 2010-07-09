@@ -7,6 +7,7 @@ class GoogleOAuthToken extends DrupalOAuthToken {
   const GDATA_ACCESS_TOKEN = 'access';
   
   public $oauth_verifier = '';
+  public $provider_token = FALSE;
   /**
    * Constructs a token from a db-result resource
    *
@@ -18,6 +19,7 @@ class GoogleOAuthToken extends DrupalOAuthToken {
   public static function fromResult($res) {
     if ($data = db_fetch_array($res)) {
       $data['services'] = json_decode($data['services']);
+      $data['in_database'] = TRUE;
       return new GoogleOAuthToken($data['token_key'], $data['secret'], $data);
     }
     return NULL;
