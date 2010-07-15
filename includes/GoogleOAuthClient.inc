@@ -88,10 +88,18 @@ class GoogleOAuthClient extends DrupalOAuthClient {
     return self::SERVER . self::USER_AUTHORIZATION_PATH . '?' . http_build_query($params, NULL, '&');
   }
 
+  /**
+   * Get access token from server
+   *
+   * @param $oauth_verifier
+   *   Optional oauth verifier. None for hybrid authentication.
+   */
   public function getAccessToken($oauth_verifier = NULL) {
     if (!$this->accessToken) {
-      $query = array('oauth_verifier' => $oauth_verifier);
-
+      $params = array();
+      if ($oauth_verifier) {
+        $query = array('oauth_verifier' => $oauth_verifier);
+      }
       $response = $this->get(self::ACCESS_TOKEN_PATH, TRUE, $query);
       $params = array();
       parse_str($response, $params);
@@ -109,43 +117,6 @@ class GoogleOAuthClient extends DrupalOAuthClient {
     }
 
     return $this->accessToken;
-  }
-
-  /**
-   * HTTP GET Request for token management. 
-   * 
-   * This will add authorization parameters into the get request
-   * 
-   * @param $token
-   *   Optional token to use instead of Access Token
-   */
-  protected function get_token($url, $params = array(), $token = NULL) {
-    $token = $token ? $token : $this->accessToken;
-    $req = OAuthRequest::from_consumer_and_token($this->consumer, $token,
-      "GET", $url, $params);
-    $req->sign_request(self::signatureMethod(), $this->consumer, $token);
-
-
-    $ch = curl_init();
-
-    curl_setopt($ch, CURLOPT_URL, $req->to_url());
-    curl_setopt($ch, CURLOPT_HEADER, 1);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-
-    $response = curl_exec($ch);
-    $error = curl_error($ch);
-    curl_close($ch);
-
-    if ($error) {
-      throw new Exception($error);
-    }
-
-    $result = $this->interpretResponse($response);
-    if ($result->responseCode != 200) {
-      throw new Exception('Failed to fetch data from url (HTTP response code ' . $result->responseCode . '): ' . $result->responseMessage, $result->responseCode);
-    }
-
-    return $result->body;
   }
 
 }
