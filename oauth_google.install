@@ -1,0 +1,16 @@
+<?php
+/**
+ * @file
+ * Zend Gdata OAuth client library. Install file.
+ */
+
+/**
+ * Update: delete consumer so it gets re-created with all parameters
+ */
+function oauth_google_update_6001() {
+  $ret = array();
+  if ($consumer_key = variable_get('oauth_google_consumer_key', '')) {
+    $ret[] = update_sql("DELETE FROM {oauth_common_consumer} WHERE consumer_key = '$consumer_key'");
+  }
+  return $ret;
+}
