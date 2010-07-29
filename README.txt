@@ -1,4 +1,7 @@
 OAuth Client for Google Data services
 -------------------------------------
 
-Needs this oauth_common patch, http://drupal.org/node/846370
+This is a wrapper for Drupal OAuth module to work with Google tokens
+
+This will work with OAuth 6.x-3.0-beta2
+http://drupal.org/project/oauth 

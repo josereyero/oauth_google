@@ -11,16 +11,8 @@ define('OAUTH_GOOGLE_AUTHORIZE_PATH', 'oauth/google/authorized');
 define('OAUTH_GOOGLE_DEFAULT_SCOPE', 'http://docs.google.com/feeds/ http://www.google.com/calendar/feeds/ http://www.google.com/m8/feeds/ http://tables.googlelabs.com/api/query/');
 
 /**
- * Implementation hook_autoload_info().
+ * Implementation of hook_menu()
  */
-function oauth_google_autoload_info() {
-  return array(
-    'GoogleOAuthConsumer'         => array('file' => 'includes/GoogleOAuthConsumer.inc'),
-    'GoogleOAuthClient'         => array('file' => 'includes/GoogleOAuthClient.inc'),
-    'GoogleOAuthToken'         => array('file' => 'includes/GoogleOAuthToken.inc'),
-  );
-}
-
 function oauth_google_menu() {
   // Admin pages
   $items['admin/settings/oauth/google'] = array(
@@ -51,15 +43,26 @@ function oauth_google_get_consumer($params = array()) {
     'secret' => variable_get('oauth_google_consumer_secret', ''),
     'name' => 'Google OAuth',
     'type' => 'google',
-    'callback_url' => oauth_google_authorize_url(),
+    'callback_url' => oauth_google_callback_url(),
   );
 
   if (!empty($params['key'])) {
-    if ($consumer = GoogleOAuthConsumer::load($params['key'])) {
+    if ($consumer = DrupalOAuthConsumer::load($params['key'], FALSE)) {
       return $consumer;
     }
     elseif (!empty($params['secret'])) {
-      $consumer = new GoogleOAuthConsumer($params['key'], $params['secret'] , $params['callback_url'] , $params);
+      $consumer_params = array(
+        'name' => $params['name'],
+        'type' => $params['type'],
+      );
+      $consumer_params['configuration'] = array(
+        'provider_url' => 'https://www.google.com/accounts',
+        'request_endpoint' => 'https://www.google.com/accounts/OAuthGetRequestToken',
+        'authorization_endpoint' => 'https://www.google.com/accounts/OAuthAuthorizeToken',
+        'access_endpoint' => 'https://www.google.com/accounts/OAuthGetAccessToken',
+        'signature_method' => 'SHA1',      
+      );
+      $consumer = new DrupalOAuthConsumer($params['key'], $params['secret'] , $params['callback_url'] , FALSE, $consumer_params);
       $consumer->write();
       return $consumer;
     }
@@ -67,9 +70,9 @@ function oauth_google_get_consumer($params = array()) {
 }
 
 /**
- * Get authorization url
+ * Get authorization url callback
  */
-function oauth_google_authorize_url() {
+function oauth_google_callback_url() {
   return url(OAUTH_GOOGLE_AUTHORIZE_PATH, array('absolute' => TRUE));
 }
 
@@ -78,9 +81,46 @@ function oauth_google_authorize_url() {
  */
 function oauth_google_get_user_token($account, $consumer, $type = 'access') {
   $result = db_query("SELECT * from {oauth_common_token} WHERE type = '%s' AND consumer_key = '%s' AND uid = %d", $type, $consumer->key, $account->uid);
-  if ($token = GoogleOAuthToken::fromResult($result)) {
+  if ($token = DrupalOAuthToken::fromResult($result)) {
     return $token;
   }
+}
+
+/**
+ * Get request token for user account
+ * 
+ * @param $options
+ *   Aditional options for DrupalOAuthClient
+ */
+function oauth_google_create_request_token($consumer, $account, $options = array(), $client = NULL) {
+  $client = $client ? $client : new DrupalOAuthClient($consumer);
+  $options += array(
+    'get' => TRUE,
+    'params' => array(),
+    'callback' => oauth_google_callback_url(),
+  );
+  $options['params'] += array(
+    'scope' => oauth_google_get_scope(),
+  );
+  if ($token = $client->getRequestToken(NULL, $options)) {
+    $token->uid = $account->uid;
+    $token->write();
+    return $token;
+  }
+}
+
+/**
+ * Get authorization url
+ */
+function oauth_google_authorize_url($consumer, $request_token, $options = array(), $client = NULL) {
+  $client = $client ? $client : new DrupalOAuthClient($consumer, $request_token);
+  $options += array(
+    'params' => array(),
+  );
+  $options['params'] += array(
+    'hd' => variable_get('oauth_google_default_domain', 'default')
+  );
+  return $client->getAuthorizationUrl(NULL, $options);
 }
 
 /**
