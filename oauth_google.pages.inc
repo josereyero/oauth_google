@@ -28,11 +28,7 @@ function oauth_google_authorize_callback() {
     $token->oauth_verifier = $oauth_verifier;
     $token->write(TRUE);
     // Get access token
-    $client = new DrupalOAuthClient($consumer, $token);
-    $options = array('verifier' => $oauth_verifier);
-    if ($access_token = $client->getAccessToken(NULL, $options)) {
-      $access_token->uid = $token->uid;
-      $access_token->write();
+    if ($access_token = oauth_google_create_access_token($consumer, $token, $oauth_verifier)) {
       drupal_set_message(t('The application has been authorized and you have got an access token.'));
     }
     else {
